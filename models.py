@@ -28,12 +28,14 @@ class EncoderRNN(nn.Module):
         # Separate the backward pass  
         backward = output.view(self.batch_size, dim_1, 2, self.hidden_size)[:, :, 1, :]
         # Sum the forward pass and the backward to form the output
-        output = (forward + backward) / 2
+        output = (forward + backward) 
         output = F.relu(output)
         # Pass through the dropout layer
         output = self.dropout_1(output)
         # I don't know what i will do with but i collect the last state for the moment
-        self.last_state = hidden.view(2,  self.batch_size, self.hidden_size)[-1,:,:].unsqueeze(0).to(self.device)
+        hidden = hidden.view(1, 2,  self.batch_size, self.hidden_size)
+        print("voici ce que tu cherches -------> ", hidden)
+        #[-1,:,:].unsqueeze(0).to(self.device)
         return output.squeeze(0), hidden 
 
     def initialize_hidden_state(self):
@@ -80,13 +82,19 @@ class EncoderCONV2DRNN(nn.Module):
         # Separate the backward pass  
         backward = output.view(self.batch_size, dim_1, 2, self.hidden_size)[:, :, 1, :]
         # Sum the forward pass and the backward to form the output
-        output = (forward + backward) / 2
+        output = forward + backward
         output = F.relu(output)
         output = self.batchnorm1d_1(output)
         # Pass through the dropout layer
         output = self.dropout_1(output)
         # I don't know what i will do with but i collect the last state for the moment
-        self.last_state = hidden.view(2,  self.batch_size, self.hidden_size)[-1,:,:].unsqueeze(0).to(self.device)
+        #self.last_state = hidden.view(2,  self.batch_size, self.hidden_size)[-1,:,:].unsqueeze(0).to(self.device)
+        hidden = hidden.view(1, 2,  self.batch_size, self.hidden_size)
+        h_forward = hidden[:, 0, :, :]
+        h_backward = hidden[:, 1, :, :]
+        
+        hidden = h_forward + h_backward
+                
         return output.squeeze(0), hidden 
 
     def initialize_hidden_state(self):

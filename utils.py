@@ -64,7 +64,7 @@ def preprocess_sentence(w):
 
 
 
-def tokenizer_librispeech(limit = 10, path="../librispeech/LibriSpeech/", version = "train-clean-360"):
+def tokenizer_librispeech(limit=10, path="../librispeech/LibriSpeech/", version = "train-clean-360"):
     ext_txt = ".trans.txt"
     ext_audio = ".flac"
     path = os.path.join(path, version)
@@ -145,7 +145,7 @@ class LibriSpeechDataset(data.Dataset):
 
     def __len__(self):
         'Denotes the total number of samples'
-        return self.limit
+        return len(self._walker)
     
     
     def wave2mfcc(self, wave):
@@ -226,7 +226,7 @@ def train_step(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
     
     loss = 0
     decoder_input = torch.tensor([[targ_lang.word_index['<start>']]] * batch_sz, device=device)
-    decoder_hidden =  encoder.last_state#encoder_hidden
+    decoder_hidden =  encoder_hidden#encoder.last_state#encoder_hidden
 
     # Use randomly teacher forcing
     if random.random() < teacher_forcing_ratio:
