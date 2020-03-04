@@ -1,7 +1,9 @@
 import os
 import re
 import csv
+import sys
 import tqdm
+import time
 import torch
 import random
 import librosa
@@ -253,3 +255,41 @@ def train_step(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
     decoder_optimizer.step()
 
     return batch_loss
+
+
+
+def global_trainer(nbr_epochs, dataloader, encoder, decoder, encoder_optimizer, decoder_optimizer,
+                                    criterion, device, batch_sz, tokenizer ):
+    
+    start = time.time()
+    for epoch in range(nbr_epochs):
+        #
+        
+        total_loss = 0
+
+
+        with tqdm.tqdm(total=len(dataloader), file=sys.stdout, leave=True, desc='Epoch ') as pbar:    
+            for batch, (inp, targ) in enumerate(dataloader):
+
+                pbar.set_description('Epoch {}'.format(epoch + 1))
+
+
+                inp, targ = inp.to(device), targ.to(device)
+                batch_loss = train_step(inp, targ, encoder, decoder, encoder_optimizer,
+                                        decoder_optimizer, criterion,
+                                        device, batch_sz, targ_lang=tokenizer)
+
+                total_loss += batch_loss
+
+                pbar.set_postfix_str('Loss {:.4f}'.format(total_loss / (batch + 1)))
+
+                pbar.update(1)
+                time.sleep(1)
+
+
+        # saving (checkpoint) the model every 2 epochs
+        if (epoch + 1) % 2 == 0:
+            torch.save(encoder, 'encoder-s2t.pt')
+            torch.save(decoder, 'decoder-s2t.pt')
+
+    print('\nTime taken for the training {:.5} hours\n'.format((time.time() - start) / 3600))
