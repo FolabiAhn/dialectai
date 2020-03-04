@@ -1,6 +1,7 @@
 import os
 import re
 import csv
+import tqdm
 import torch
 import random
 import librosa
@@ -96,8 +97,7 @@ def load_librispeech_item(fileid, path, ext_audio, ext_txt, text_only=False):
     # Load audio
     if text_only is False:
         wav, sr = torchaudio.load(file_audio)
-        wav = wav.numpy()[0]
-        
+        wav = wav.numpy()[0]   
     
     # Load text
     with open(file_text) as ft:
@@ -207,13 +207,11 @@ class LibriSpeechDataset(data.Dataset):
         return torch.tensor(mat), torch.tensor(sentence)
     
     
-    
-    
 def train_step(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
           decoder_optimizer, criterion, device, batch_sz, targ_lang, teacher_forcing_ratio=0.5):
     
     # Initialize the encoder
-    encoder_hidden = encoder.initialize_hidden_state().to(device)
+    #encoder_hidden = encoder.initialize_hidden_state().to(device)
     # Put all the previously computed gradients to zero
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
@@ -221,7 +219,7 @@ def train_step(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
     target_length = target_tensor.size(1)
     
     # Encode the input sentence
-    encoder_outputs, encoder_hidden = encoder(input_tensor, encoder_hidden)
+    encoder_outputs, encoder_hidden = encoder(input_tensor)#, encoder_hidden)
     
     
     loss = 0
