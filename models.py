@@ -97,7 +97,8 @@ class RnnBase(nn.Module):
         h_forward = hidden[:, 0, :, :]
         h_backward = hidden[:, 1, :, :]
         # Type of merge chosen 
-        hidden = h_forward + h_backward
+        hidden = h_forward + h_backward # Batch norm pour le hidden ?
+        
         
         return output, hidden
     
@@ -113,6 +114,7 @@ class EncoderCONV2DRNN(nn.Module):
         self.conv_base = ConvBase(hidden_size)
         self.rnn_base_1 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=4352)
         #self.rnn_base_2 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
+        #self.rnn_base_3 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
 
     def forward(self, mfccs):
 
@@ -120,20 +122,18 @@ class EncoderCONV2DRNN(nn.Module):
         output = self.conv_base(mfccs)
         # Sequential bloc
         #output, _ = self.rnn_base_1(output)
-        #output, hidden = self.rnn_base_2(output)
+        #output, _ = self.rnn_base_2(output)
+        #output, hidden = self.rnn_base_3(output)
         output, hidden = self.rnn_base_1(output)
                 
         return output.squeeze(0), hidden 
-
-    #def initialize_hidden_state(self):
-    #    return torch.zeros(2, self.batch_size, self.hidden_size, device=self.device)
+     
     
-        
+   
     
     
-    
-    
-class Decoder(nn.Module):
+class DecoderBASIC(nn.Module):
+    """Bahdanau Baseline decoder"""
     
     def __init__(self, vocab_size, embedding_dim, dec_units, batch_sz, hidden_size):
         
@@ -144,7 +144,46 @@ class Decoder(nn.Module):
         self.gru = nn.GRU(embedding_dim + hidden_size, self.dec_units, batch_first=True)
         self.fc = nn.Linear(hidden_size, vocab_size)
         # used for attention
-        self.attention = BahdanauAttention(self.dec_units, hidden_size=hidden_size)
+        self.attention = BahdanauAttentionBase(self.dec_units, hidden_size=hidden_size)
+        
+    
+    def forward(self, input, hidden, enc_output):
+        # enc_output shape == (batch_size, max_length, hidden_size)
+        context_vector, attention_weights = self.attention(hidden, enc_output)
+
+        # x shape after passing input through embedding == (batch_size, 1, embedding_dim)
+        x = self.embedding(input)
+        # x shape after concatenation == (batch_size, 1, embedding_dim + hidden_size)
+        context_vector = torch.unsqueeze(context_vector, 1)
+        x = torch.cat((context_vector, x), 2)
+        
+        # passing the concatenated vector to the GRU
+        output, state = self.gru(x)
+        
+        # output shape == (batch_size * 1, hidden_size)
+        output = output.reshape(-1, output.shape[2])
+
+        # output shape == (batch_size, vocab)
+        output = self.fc(output)
+        
+        output = F.log_softmax(output, dim=1)
+
+        return output, state, attention_weights
+        
+
+class DecoderAUDIO(nn.Module):
+    """Bahdanau Audio Adapated decoder"""
+    
+    def __init__(self, vocab_size, embedding_dim, dec_units, batch_sz, hidden_size):
+        
+        super().__init__()
+        self.batch_sz = batch_sz
+        self.dec_units = dec_units
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.gru = nn.GRU(embedding_dim + hidden_size, self.dec_units, batch_first=True)
+        self.fc = nn.Linear(hidden_size, vocab_size)
+        # used for attention
+        self.attention = BahdanauAttentionBase(self.dec_units, hidden_size=hidden_size)
         
     
     def forward(self, input, hidden, enc_output):

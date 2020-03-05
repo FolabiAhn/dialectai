@@ -268,7 +268,7 @@ def global_trainer(nbr_epochs, dataloader, encoder, decoder, encoder_optimizer, 
         total_loss = 0
 
 
-        with tqdm.tqdm(total=len(dataloader), file=sys.stdout, leave=True, desc='Epoch ') as pbar:    
+        with tqdm.tqdm(total=len(dataloader), file=sys.stdout, leave=True, desc='Epoch ', bar_format="{l_bar}{bar:20}{r_bar}{bar:-20b}") as pbar:    
             for batch, (inp, targ) in enumerate(dataloader):
 
                 pbar.set_description('Epoch {}'.format(epoch + 1))
