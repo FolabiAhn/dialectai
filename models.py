@@ -153,7 +153,7 @@ class DecoderATTRNN1(nn.Module):
             self.attention = LuongAttentionDot()
         elif method == 'luong_concat':
             self.attention = LuongAttentionConcat(units=dec_units, hidden_size=hidden_size)
-        elif method == 'luong_general'
+        elif method == 'luong_general':
             self.attention = LuongAttentionGeneral(hidden_size=hidden_size)
         else:
             print(" ---- YOU SHOULD SPECIFY THE METHOD FOR THE ATTENTION MECHANISM !!! ---- ")
