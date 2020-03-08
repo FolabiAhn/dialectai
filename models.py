@@ -48,7 +48,7 @@ class ConvBase(nn.Module):
         super().__init__() 
         self.hidden_size = hidden_size
         self.avg_pool_1 = nn.AvgPool2d(kernel_size=3, stride=(2,3))
-        self.batchnorm2d_1 = nn.BatchNorm2d(256)
+        self.batchnorm2d_1 = nn.BatchNorm2d(hidden_size)
         self.conv2d_1 = nn.Conv2d(in_channels=1, out_channels=256, kernel_size=3, stride=1, dilation=1)
         self.conv2d_2 = nn.Conv2d(in_channels=256, out_channels=self.hidden_size, kernel_size=3, 
                                   stride=1, dilation=1)
@@ -101,8 +101,6 @@ class RnnBase(nn.Module):
         
         
         return output, hidden
-    
-
 
         
     
@@ -113,19 +111,34 @@ class EncoderCONV2DRNN(nn.Module):
         self.conv_base = ConvBase(hidden_size)
         self.hidden_size = hidden_size
         self.device = device
-        self.rnn_base_1 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=4352)
-        #self.rnn_base_2 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
-        #self.rnn_base_3 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
+        self.rnn_base_1 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=1088)
+        self.rnn_base_2 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
+        self.rnn_base_3 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
+        self.rnn_base_4 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
+        self.rnn_base_5 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
 
     def forward(self, mfccs, hidden):
 
         # Convolutionnal base
         output = self.conv_base(mfccs)
         # Sequential bloc
-        #output, _ = self.rnn_base_1(output)
-        #output, _ = self.rnn_base_2(output)
-        #output, hidden = self.rnn_base_3(output)
-        output, hidden = self.rnn_base_1(output, hidden)
+        output, _ = self.rnn_base_1(output, hidden)
+        copy_output = output.clone()
+        
+        output, _ = self.rnn_base_2(output, hidden)
+        output = output + copy_output
+        copy_output = output.clone()
+        
+        output, _ = self.rnn_base_3(output, hidden)
+        output = output + copy_output
+        copy_output = output.clone()
+        
+        output, _ = self.rnn_base_4(output, hidden)
+        output = output + copy_output
+        copy_output = output.clone()
+        
+        output, hidden = self.rnn_base_5(output, hidden)
+        output = output + copy_output
                 
         return output.squeeze(0), hidden  
 
@@ -142,7 +155,9 @@ class DecoderATTRNN1(nn.Module):
         self.batch_sz = batch_sz
         self.dec_units = dec_units
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.gru = nn.GRU(embedding_dim + hidden_size, self.dec_units, batch_first=True)
+        self.gru_1 = nn.GRU(embedding_dim + hidden_size, self.dec_units, batch_first=True)
+        self.gru_2 = nn.GRU(self.dec_units, self.dec_units, batch_first=True)
+        self.gru_3 = nn.GRU(self.dec_units, self.dec_units, batch_first=True)
         self.fc = nn.Linear(hidden_size, vocab_size)
         # used for attention
         if method == 'bahdanau_basic':
@@ -168,7 +183,16 @@ class DecoderATTRNN1(nn.Module):
         context_vector = torch.unsqueeze(context_vector, 1)
         x = torch.cat((context_vector, x), 2)
         # passing the concatenated vector to the GRU
-        output, state = self.gru(x)
+        output, _ = self.gru_1(x)
+        copy_output = output.clone()
+        
+        output, _ = self.gru_2(output)
+        output = output + copy_output
+        copy_output = output.clone()
+        
+        output, state = self.gru_3(output)
+        output = output + copy_output
+        
         # output shape == (batch_size * 1, hidden_size)
         output = output.reshape(-1, output.shape[2])
         # output shape == (batch_size, vocab)
