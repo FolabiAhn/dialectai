@@ -133,10 +133,10 @@ class EncoderCONV2DRNN(nn.Module):
         return torch.zeros(2, self.batch_size, self.hidden_size, device=self.device)
     
     
-class DecoderBAHDANAUBASIC(nn.Module):
+class DecoderATTRNN1(nn.Module):
     """Bahdanau Baseline decoder"""
     
-    def __init__(self, vocab_size, embedding_dim, dec_units, batch_sz, hidden_size):
+    def __init__(self, vocab_size, embedding_dim, dec_units, batch_sz, hidden_size, method='bahdanau_basic'):
         
         super().__init__()
         self.batch_sz = batch_sz
@@ -145,7 +145,18 @@ class DecoderBAHDANAUBASIC(nn.Module):
         self.gru = nn.GRU(embedding_dim + hidden_size, self.dec_units, batch_first=True)
         self.fc = nn.Linear(hidden_size, vocab_size)
         # used for attention
-        self.attention = BahdanauAttentionBase(self.dec_units, hidden_size=hidden_size)
+        if method == 'bahdanau_basic':
+            self.attention = BahdanauAttentionBase(units=self.dec_units, hidden_size=hidden_size)
+        elif method == 'bahdanau_audio':
+            pass
+        elif method == 'luong_dot':
+            self.attention = LuongAttentionDot()
+        elif method == 'luong_concat':
+            self.attention = LuongAttentionConcat(units=dec_units, hidden_size=hidden_size)
+        elif method == 'luong_general'
+            self.attention = LuongAttentionGeneral(hidden_size=hidden_size)
+        else:
+            print(" ---- YOU SHOULD SPECIFY THE METHOD FOR THE ATTENTION MECHANISM !!! ---- ")
         
     
     def forward(self, input, hidden, enc_output):
@@ -166,12 +177,3 @@ class DecoderBAHDANAUBASIC(nn.Module):
 
         return output, state, attention_weights
         
-
-class DecoderBAHDANAUAUDIO(nn.Module):
-    """Bahdanau Audio Adapated decoder"""
-    pass
-        
-    
-class DecoderLUONGBASIC(nn.Module):
-    """Luong's baseline decoder"""
-    pass
