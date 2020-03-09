@@ -116,6 +116,8 @@ class EncoderCONV2DRNN(nn.Module):
         self.rnn_base_3 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
         self.rnn_base_4 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
         self.rnn_base_5 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
+        self.rnn_base_6 = RnnBase(device, hidden_size, batch_size, bn_in_feat=198, gru_in_feat=hidden_size)
+
 
     def forward(self, mfccs, hidden):
 
@@ -137,7 +139,11 @@ class EncoderCONV2DRNN(nn.Module):
         output = output + copy_output
         copy_output = output.clone()
         
-        output, hidden = self.rnn_base_5(output, hidden)
+        output, _ = self.rnn_base_5(output, hidden)
+        output = output + copy_output
+        copy_output = output.clone()
+
+        output, hidden = self.rnn_base_6(output, hidden)
         output = output + copy_output
                 
         return output.squeeze(0), hidden  
@@ -158,6 +164,8 @@ class DecoderATTRNN1(nn.Module):
         self.gru_1 = nn.GRU(embedding_dim + hidden_size, self.dec_units, batch_first=True)
         self.gru_2 = nn.GRU(self.dec_units, self.dec_units, batch_first=True)
         self.gru_3 = nn.GRU(self.dec_units, self.dec_units, batch_first=True)
+        self.gru_4 = nn.GRU(self.dec_units, self.dec_units, batch_first=True)
+        
         self.fc = nn.Linear(hidden_size, vocab_size)
         # used for attention
         if method == 'bahdanau_basic':
@@ -189,8 +197,12 @@ class DecoderATTRNN1(nn.Module):
         output, _ = self.gru_2(output)
         output = output + copy_output
         copy_output = output.clone()
+
+        output, _ = self.gru_3(output)
+        output = output + copy_output
+        copy_output = output.clone()
         
-        output, state = self.gru_3(output)
+        output, state = self.gru_4(output)
         output = output + copy_output
         
         # output shape == (batch_size * 1, hidden_size)
