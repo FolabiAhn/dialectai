@@ -258,6 +258,14 @@ def train_step(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
 def global_trainer(nbr_epochs, dataloader, encoder, decoder, encoder_optimizer, decoder_optimizer,
                                     criterion, device, batch_sz, tokenizer ):
     
+    nb_params = sum(p.numel() for p in encoder.parameters() if p.requires_grad) + \
+                sum(p.numel() for p in decoder.parameters() if p.requires_grad)
+    
+    print(" ======"*6)
+    print("      The model has {} parameters".format(nb_params))
+    print(" ======"*6)
+    print("\n")
+    
     start = time.time()
     for epoch in range(nbr_epochs):
         #
@@ -265,7 +273,7 @@ def global_trainer(nbr_epochs, dataloader, encoder, decoder, encoder_optimizer, 
 
 
         with tqdm.tqdm(total=len(dataloader), file=sys.stdout, leave=True, desc='Epoch ', \
-                       bar_format="{l_bar}{bar:20}{r_bar}{bar:-20b}") as pbar:    
+                       bar_format="{l_bar}{bar:20}{r_bar}{bar:-15b}") as pbar:    
             for batch, (inp, targ) in enumerate(dataloader):
 
                 pbar.set_description('Epoch {}'.format(epoch + 1))
