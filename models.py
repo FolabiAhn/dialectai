@@ -169,7 +169,7 @@ class DecoderATTRNN1(nn.Module):
         self.fc = nn.Linear(hidden_size, vocab_size)
         # used for attention
         if method == 'bahdanau_basic':
-            self.attention = BahdanauAttentionBase(units=self.dec_units, hidden_size=hidden_size)
+            self.attention = BahdanauAttentionBase(units=dec_units, hidden_size=hidden_size)
         elif method == 'bahdanau_audio':
             pass
         elif method == 'luong_dot':
@@ -178,13 +178,15 @@ class DecoderATTRNN1(nn.Module):
             self.attention = LuongAttentionConcat(units=dec_units, hidden_size=hidden_size)
         elif method == 'luong_general':
             self.attention = LuongAttentionGeneral(hidden_size=hidden_size)
+        elif method == 'super_head':
+            self.attention = SuperHeadAttention(units=dec_units, hidden_size=hidden_size)
         else:
             print(" ---- YOU SHOULD SPECIFY THE METHOD FOR THE ATTENTION MECHANISM !!! ---- ")
         
     
     def forward(self, input, hidden, enc_output):
         # enc_output shape == (batch_size, max_length, hidden_size)
-        context_vector, attention_weights = self.attention(hidden, enc_output)
+        context_vector, attention_weights, _ = self.attention(hidden, enc_output)
         # x shape after passing input through embedding == (batch_size, 1, embedding_dim)
         x = self.embedding(input)
         # x shape after concatenation == (batch_size, 1, embedding_dim + hidden_size)

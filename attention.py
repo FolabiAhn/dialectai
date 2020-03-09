@@ -24,13 +24,13 @@ class BahdanauAttentionBase(nn.Module):
         # the shape of the tensor before applying self.V is (batch_size, max_length, units)
         sum_1 = self.W1(values) + self.W2(hidden_with_time_axis)
         score = self.V(torch.tanh(sum_1))
-        # attention_weights shape == (batch_size, max_length, 1)
+        # score shape == (batch_size, max_length, 1)
         attention_weights = F.softmax(score, dim=1)
         # context_vector shape after sum == (batch_size, hidden_size) 
         # (values == EO)
         context_vector = attention_weights * values
         context_vector = context_vector.sum(1)
-        return context_vector, attention_weights        
+        return context_vector, attention_weights, score        
         
         
 class BahdanauAttentionAudio(nn.Module):
@@ -53,7 +53,7 @@ class LuongAttentionDot(nn.Module):
         # (values == EO)
         context_vector = attention_weights * values
         context_vector = context_vector.sum(1)
-        return context_vector, attention_weights
+        return context_vector, attention_weights, score
 
 
 class LuongAttentionGeneral(nn.Module):
@@ -67,13 +67,13 @@ class LuongAttentionGeneral(nn.Module):
         query = torch.unsqueeze(query, 1)
         query_transposed = query.transpose(2, 1) 
         score = torch.matmul(self.W(values), query_transposed)     
-        # attention_weights shape == (batch_size, max_length, 1)
+        # score shape == (batch_size, max_length, 1)
         attention_weights = F.softmax(score, dim=1)
         # context_vector shape after sum == (batch_size, hidden_size) 
         # (values == EO)
         context_vector = attention_weights * values
         context_vector = context_vector.sum(1)
-        return context_vector, attention_weights
+        return context_vector, attention_weights, score
 
 
 class LuongAttentionConcat(nn.Module):
@@ -90,13 +90,53 @@ class LuongAttentionConcat(nn.Module):
         query = query.repeat(1, values.shape[1], 1)
         cat = torch.cat((values, query), dim=2)
         score = self.V(torch.tanh(self.W(cat)))
-        # attention_weights shape == (batch_size, max_length, 1)
+        # score shape == (batch_size, max_length, 1)
         attention_weights = F.softmax(score, dim=1)
         # context_vector shape after sum == (batch_size, hidden_size) 
         # (values == EO)
         context_vector = attention_weights * values
         context_vector = context_vector.sum(1)
-        return context_vector, attention_weights
+        return context_vector, attention_weights, score
 
+        
+
+class SuperHeadAttention(nn.Module):
+    
+    def __init__(self, units, hidden_size):
+        super().__init__()
+        self.nbr_heads = 8
+        self.W = nn.Linear(self.nbr_heads, 1)
+        self.attention_1 = BahdanauAttentionBase(units=units, hidden_size=hidden_size)
+        self.attention_2 = BahdanauAttentionBase(units=units, hidden_size=hidden_size)
+        self.attention_3 = LuongAttentionDot()
+        self.attention_4 = LuongAttentionDot()
+        self.attention_5 = LuongAttentionConcat(units=units, hidden_size=hidden_size)
+        self.attention_6 = LuongAttentionConcat(units=units, hidden_size=hidden_size)
+        self.attention_7 = LuongAttentionGeneral(hidden_size=hidden_size)
+        self.attention_8 = LuongAttentionGeneral(hidden_size=hidden_size)
+        
+    def forward(self, query, values):
+        
+        _, _, score_1 = self.attention_1(query, values)
+        _, _, score_2 = self.attention_2(query, values)
+        _, _, score_3 = self.attention_3(query, values)
+        _, _, score_4 = self.attention_4(query, values)
+        _, _, score_5 = self.attention_5(query, values)
+        _, _, score_6 = self.attention_6(query, values)
+        _, _, score_7 = self.attention_7(query, values)
+        _, _, score_8 = self.attention_8(query, values)
+        
+        concat = torch.cat([score_1, score_2, score_3, score_4,\
+                            score_5, score_6, score_7, score_8], dim=2)
+        #print('tata',concat.shape)
+        score = self.W(concat)
+        #print('toto', score.shape)
+        attention_weights = F.softmax(score, dim=1)
+        # context_vector shape after sum == (batch_size, hidden_size) 
+        # (values == EO)
+        context_vector = attention_weights * values
+        context_vector = context_vector.sum(1)
+        return context_vector, attention_weights, score
+        
         
         
