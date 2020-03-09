@@ -14,6 +14,7 @@ import tensorflow as tf
 import torchaudio
 from torch.utils import data
 from torch.nn.utils.rnn import pad_sequence
+from nltk.translate.bleu_score import sentence_bleu as bleu
 from torchaudio.datasets.utils import (
     download_url,
     extract_archive,
@@ -304,7 +305,7 @@ def greedy_decode(mfccs, max_length_targ, encoder, decoder, targ_lang, device):
     result = ''
 
     with torch.no_grad():
-        enc_hidden = torch.zeros(2, 1, 256, device=device)
+        enc_hidden = torch.zeros(2, 1, 64, device=device)
         enc_out, enc_hidden = encoder(mfccs, enc_hidden)
 
         dec_hidden = enc_hidden
@@ -452,18 +453,22 @@ def beam_search_decode(sentence, max_length_targ, max_length_inp, encoder, decod
         
         
 
-def translate(sentence, max_length_targ, max_length_inp, encoder, decoder, inp_lang, targ_lang, 
+def translate(mfccs, references, max_length_targ, encoder, decoder, targ_lang, 
               device, beam_search=True, beam_width=3, alpha=0.3, nb_candidates=50):
     
     if beam_search == False:
-        result, sentence = greedy_decode(sentence, max_length_targ, max_length_inp, 
-                                                encoder, decoder, inp_lang, targ_lang, device)
+        result= greedy_decode(mfccs, max_length_targ, encoder, decoder, targ_lang, device)
     else:
         result, sentence = beam_search_decode(sentence, max_length_targ, max_length_inp, 
                                               encoder, decoder, inp_lang, targ_lang, device,
                                               beam_width=beam_width, nb_candidates=nb_candidates, alpha=alpha)
-
-    print('Input: %s' % (sentence))
-    print('Predicted translation: {}'.format(result))
+        
+    BLEUscore = bleu([references], result, weights = (0.5, 0.5))
+    
+    print("Input: %s" % (references))
+    print("\n")
+    print("Predicted translation: {}".format(result))
+    print("\n")
+    print("Bleu score: {}".format(BLEUscore))
     
     

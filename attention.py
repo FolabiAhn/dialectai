@@ -126,6 +126,8 @@ class SuperHeadAttention(nn.Module):
         _, _, score_7 = self.attention_7(query, values)
         _, _, score_8 = self.attention_8(query, values)
         
+        print(score_2.shape)
+        print(score_5.shape)
         concat = torch.cat([score_1, score_2, score_3, score_4,\
                             score_5, score_6, score_7, score_8], dim=2)
         #print('tata',concat.shape)
