@@ -120,7 +120,8 @@ class EncoderCONV2DRNN(nn.Module):
 
 
     def forward(self, mfccs, hidden):
-
+        
+        #print("mfccs ----",mfccs.shape)
         # Convolutionnal base
         output = self.conv_base(mfccs)
         # Sequential bloc
@@ -145,8 +146,10 @@ class EncoderCONV2DRNN(nn.Module):
 
         output, hidden = self.rnn_base_6(output, hidden)
         output = output + copy_output
-                
-        return output.squeeze(0), hidden  
+        
+        #print("enc out 1----", output.shape)
+        #print("enc out 2----", output.squeeze(0).shape)
+        return output, hidden #output.squeeze(0), hidden  
 
     def initialize_hidden_state(self):
         return torch.zeros(2, self.batch_size, self.hidden_size, device=self.device)

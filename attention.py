@@ -84,10 +84,10 @@ class LuongAttentionConcat(nn.Module):
         self.V = nn.Linear(units, 1)
         
     def forward(self, query, values):
-
         query = torch.squeeze(query, 0)
         query = torch.unsqueeze(query, 1)
         query = query.repeat(1, values.shape[1], 1)
+        
         cat = torch.cat((values, query), dim=2)
         score = self.V(torch.tanh(self.W(cat)))
         # score shape == (batch_size, max_length, 1)
@@ -126,8 +126,6 @@ class SuperHeadAttention(nn.Module):
         _, _, score_7 = self.attention_7(query, values)
         _, _, score_8 = self.attention_8(query, values)
         
-        print(score_2.shape)
-        print(score_5.shape)
         concat = torch.cat([score_1, score_2, score_3, score_4,\
                             score_5, score_6, score_7, score_8], dim=2)
         #print('tata',concat.shape)

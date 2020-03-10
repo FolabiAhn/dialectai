@@ -296,17 +296,21 @@ def global_trainer(nbr_epochs, dataloader, encoder, decoder, encoder_optimizer, 
     
     
         
-def greedy_decode(mfccs, max_length_targ, encoder, decoder, targ_lang, device):
+def greedy_decode(mfccs, max_length_targ, encoder, decoder, targ_lang, device, hidden_size=64):
 
     
     # Send the inputs matrix to device
     mfccs = torch.tensor(mfccs).to(device)
+    
+    #print("mfccs", mfccs.shape)
 
     result = ''
 
     with torch.no_grad():
-        enc_hidden = torch.zeros(2, 1, 64, device=device)
+        enc_hidden = torch.zeros(2, 1, hidden_size, device=device)
         enc_out, enc_hidden = encoder(mfccs, enc_hidden)
+        
+        #print("EO", enc_out.shape)
 
         dec_hidden = enc_hidden
         dec_input = torch.tensor([[targ_lang.word_index['<start>']]], device=device)
@@ -453,8 +457,8 @@ def beam_search_decode(sentence, max_length_targ, max_length_inp, encoder, decod
         
         
 
-def translate(mfccs, references, max_length_targ, encoder, decoder, targ_lang, 
-              device, beam_search=True, beam_width=3, alpha=0.3, nb_candidates=50):
+def evaluate(mfccs, references, max_length_targ, encoder, decoder, targ_lang, 
+              device, beam_search=False, beam_width=3, alpha=0.3, nb_candidates=50):
     
     if beam_search == False:
         result= greedy_decode(mfccs, max_length_targ, encoder, decoder, targ_lang, device)
@@ -462,10 +466,10 @@ def translate(mfccs, references, max_length_targ, encoder, decoder, targ_lang,
         result, sentence = beam_search_decode(sentence, max_length_targ, max_length_inp, 
                                               encoder, decoder, inp_lang, targ_lang, device,
                                               beam_width=beam_width, nb_candidates=nb_candidates, alpha=alpha)
-        
+    result = result.split()    
     BLEUscore = bleu([references], result, weights = (0.5, 0.5))
     
-    print("Input: %s" % (references))
+    print("Input: {}".format(references))
     print("\n")
     print("Predicted translation: {}".format(result))
     print("\n")
