@@ -12,6 +12,7 @@ import unicodedata
 import numpy as np
 import tensorflow as tf
 import torchaudio
+from queue import PriorityQueue
 from torch.utils import data
 from torch.nn.utils.rnn import pad_sequence
 from nltk.translate.bleu_score import sentence_bleu as bleu
@@ -296,7 +297,7 @@ def global_trainer(nbr_epochs, dataloader, encoder, decoder, encoder_optimizer, 
     
     
         
-def greedy_decode(mfccs, max_length_targ, encoder, decoder, targ_lang, device, hidden_size=64):
+def greedy_decode(mfccs, max_length_targ, encoder, decoder, targ_lang, device, enc_units=64):
 
     
     # Send the inputs matrix to device
@@ -307,7 +308,7 @@ def greedy_decode(mfccs, max_length_targ, encoder, decoder, targ_lang, device, h
     result = ''
 
     with torch.no_grad():
-        enc_hidden = torch.zeros(2, 1, hidden_size, device=device)
+        enc_hidden = torch.zeros(2, 1, enc_units, device=device)
         enc_out, enc_hidden = encoder(mfccs, enc_hidden)
         
         #print("EO", enc_out.shape)
@@ -378,22 +379,17 @@ class BeamTreeNode(object):
         self.inv_path += node.inv_path
     
         
-def beam_search_decode(sentence, max_length_targ, max_length_inp, encoder, decoder, inp_lang, 
-                       targ_lang, device, nb_candidates, beam_width, alpha):
+def beam_search_decode(mfccs, max_length_targ,  encoder, decoder,  targ_lang, device,
+                       nb_candidates, beam_width, alpha, enc_units=64):
 
-    sentence = preprocess_sentence(sentence)
-
-    inputs = [inp_lang.word_index[i] for i in sentence.split(' ')]
-    inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs],
-                                                         maxlen=max_length_inp,
-                                                         padding='post')
-    inputs = torch.tensor(inputs).long().to(device)
+    # Send the inputs matrix to device
+    mfccs = torch.tensor(mfccs).to(device)
 
     result = ''
 
     with torch.no_grad():
-        hidden = torch.zeros(1, 1, 1024, device=device)
-        enc_out, enc_hidden = encoder(inputs, hidden)
+        hidden = torch.zeros(2, 1, enc_units, device=device)
+        enc_out, enc_hidden = encoder(mfccs, hidden)
 
         dec_hidden = enc_hidden
         dec_input = torch.tensor([[targ_lang.word_index['<start>']]], device=device)
@@ -453,18 +449,17 @@ def beam_search_decode(sentence, max_length_targ, max_length_inp, encoder, decod
             if elem != 0:
                 result += targ_lang.index_word[elem] + ' '
 
-        return result, sentence         
+        return result        
         
         
 
 def evaluate(mfccs, references, max_length_targ, encoder, decoder, targ_lang, 
-              device, beam_search=False, beam_width=3, alpha=0.3, nb_candidates=50):
+              device, beam_search=False, beam_width=3, alpha=0.3, nb_candidates=10):
     
     if beam_search == False:
         result= greedy_decode(mfccs, max_length_targ, encoder, decoder, targ_lang, device)
     else:
-        result, sentence = beam_search_decode(sentence, max_length_targ, max_length_inp, 
-                                              encoder, decoder, inp_lang, targ_lang, device,
+        result = beam_search_decode(mfccs, max_length_targ, encoder, decoder, targ_lang, device=device,
                                               beam_width=beam_width, nb_candidates=nb_candidates, alpha=alpha)
     result = result.split()    
     BLEUscore = bleu([references], result, weights = (0.5, 0.5))
