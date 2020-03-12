@@ -174,7 +174,7 @@ class DecoderATTRNN1(nn.Module):
         if method == 'bahdanau_basic':
             self.attention = BahdanauAttentionBase(units=dec_units, hidden_size=hidden_size)
         elif method == 'bahdanau_audio':
-            pass
+            self.attention = BahdanauAttentionAudio(kernel_size=2, kernel_num=198, units=dec_units, hidden_size=hidden_size)
         elif method == 'luong_dot':
             self.attention = LuongAttentionDot()
         elif method == 'luong_concat':

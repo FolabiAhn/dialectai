@@ -5,6 +5,11 @@ import torch.nn.functional as F
 
 
 
+def smoothing(x):
+    """Compute softmax values for each sets of scores in x."""
+    return x.sigmoid() / x.sigmoid().sum(0)
+
+
 class BahdanauAttentionBase(nn.Module):
     
     def __init__(self, units, hidden_size):
@@ -25,7 +30,8 @@ class BahdanauAttentionBase(nn.Module):
         sum_1 = self.W1(values) + self.W2(hidden_with_time_axis)
         score = self.V(torch.tanh(sum_1))
         # score shape == (batch_size, max_length, 1)
-        attention_weights = F.softmax(score, dim=1)
+        #attention_weights = F.softmax(score, dim=1)
+        attention_weights = smoothing(score)
         # context_vector shape after sum == (batch_size, hidden_size) 
         # (values == EO)
         context_vector = attention_weights * values
@@ -37,13 +43,13 @@ class BahdanauAttentionAudio(nn.Module):
     
     def __init__(self, kernel_size, kernel_num, units, hidden_size):
         super().__init__()
-        self.prev_att = None
+        self.prev_att = torch.zeros(20, 198, 1).to('cuda')#None
         self.W1 = nn.Linear(hidden_size, units)
         self.W2 = nn.Linear(hidden_size, units)
         self.V = nn.Linear(units, 1)
-        self.loc_conv = nn.Conv1d(num_head, kernel_num, kernel_size=2*kernel_size+1,
+        self.loc_conv = nn.Conv1d(198, kernel_num, kernel_size=2*kernel_size+1,
                                   padding=kernel_size, bias=False)
-        self.loc_proj = nn.Linear(kernel_num, dim, bias=False)
+        self.loc_proj = nn.Linear(1, hidden_size, bias=False)
  
     def reset_mem(self):
         super().reset_mem()
@@ -60,15 +66,25 @@ class BahdanauAttentionAudio(nn.Module):
         hidden_with_time_axis = torch.unsqueeze(query, 1)
 
         # Calculate location context
-        loc_context = self.loc_proj(self.loc_conv(self.prev_att))
+        #convolve = self.loc_conv(self.prev_att)
+        #loc_context = self.loc_proj(convolve)
+        
         # score shape == (batch_size, max_length, 1)
         # we get 1 at the last axis because we are applying score to self.V
         # the shape of the tensor before applying self.V is (batch_size, max_length, units)
-        sum_1 = self.W1(values) + self.W2(hidden_with_time_axis) + loc_context
+        sum_1 = self.W1(values) + self.W2(hidden_with_time_axis) #+ loc_context
         score = self.V(torch.tanh(sum_1))
-        # score shape == (batch_size, max_length, 1)
-        attention_weights = F.softmax(score, dim=1)
+        # As we are dealing with audio we will take the topk frames
+        top_val, top_pos = torch.topk(score, k=100, dim=1)
+        score = score.squeeze(2)
+        top_pos = top_pos.squeeze(2)
+        score = -1 * (score.scatter(1, top_pos, 0) - score)
+        score = score.unsqueeze(2)
+        # We will change the softmax with the smothing
+        
+        attention_weights = smoothing(score)
         self.prev_att = attention_weights
+        
         # context_vector shape after sum == (batch_size, hidden_size) 
         # (values == EO)
         context_vector = attention_weights * values
