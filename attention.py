@@ -34,7 +34,46 @@ class BahdanauAttentionBase(nn.Module):
         
         
 class BahdanauAttentionAudio(nn.Module):
-    pass
+    
+    def __init__(self, kernel_size, kernel_num, units, hidden_size):
+        super().__init__()
+        self.prev_att = None
+        self.W1 = nn.Linear(hidden_size, units)
+        self.W2 = nn.Linear(hidden_size, units)
+        self.V = nn.Linear(units, 1)
+        self.loc_conv = nn.Conv1d(num_head, kernel_num, kernel_size=2*kernel_size+1,
+                                  padding=kernel_size, bias=False)
+        self.loc_proj = nn.Linear(kernel_num, dim, bias=False)
+ 
+    def reset_mem(self):
+        super().reset_mem()
+        self.prev_att = None
+
+    def set_mem(self, prev_att):
+        self.prev_att = prev_att
+        
+    def forward(self, query, values):
+        # hidden shape == (batch_size, hidden size)
+        # hidden_with_time_axis shape == (batch_size, 1, hidden size)
+        # we are doing this to perform addition to calculate the score
+        query = torch.squeeze(query, 0)
+        hidden_with_time_axis = torch.unsqueeze(query, 1)
+
+        # Calculate location context
+        loc_context = self.loc_proj(self.loc_conv(self.prev_att))
+        # score shape == (batch_size, max_length, 1)
+        # we get 1 at the last axis because we are applying score to self.V
+        # the shape of the tensor before applying self.V is (batch_size, max_length, units)
+        sum_1 = self.W1(values) + self.W2(hidden_with_time_axis) + loc_context
+        score = self.V(torch.tanh(sum_1))
+        # score shape == (batch_size, max_length, 1)
+        attention_weights = F.softmax(score, dim=1)
+        self.prev_att = attention_weights
+        # context_vector shape after sum == (batch_size, hidden_size) 
+        # (values == EO)
+        context_vector = attention_weights * values
+        context_vector = context_vector.sum(1)
+        return context_vector, attention_weights, score  
                       
 
             
@@ -43,7 +82,7 @@ class LuongAttentionDot(nn.Module):
     def __init__(self):
         super().__init__()
         
-    def forward(self, query, values): # h_t = values      h_s = query
+    def forward(self, query, values): # h_t = query      h_s = values
         query = torch.squeeze(query, 0)
         query = torch.unsqueeze(query, 1)
         query_transposed = query.transpose(2, 1)  
